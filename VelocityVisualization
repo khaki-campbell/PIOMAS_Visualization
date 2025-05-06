@@ -1,0 +1,60 @@
+# Tools to plot velocity data (ocean or ice sheet) as a quiver plot
+
+import struct
+import xarray as xr
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
+import cmocean
+
+def draw_quiv(u_u,v_u,lats,lons, label,mask):
+# u_u: u direction velocity
+# v_u: v direction velocity
+# Lats: latitiude 
+# lons: longitude
+# mask: land mask, to mask the continents
+    u = u_u
+    v = v_u
+    u[mask] = np.nan
+    v[mask] = np.nan
+   
+    plt.ioff()
+
+    myfig =  plt.figure() 
+    myax = plt.subplot(111)#
+    m = Basemap(projection='npstere',boundinglat=67,lon_0=270,resolution='l',round =True)
+    m.drawcoastlines(color='g')
+
+    #cmap = cmocean.cm.thermal # set colourmap
+    cmap = cmocean.cm.speed
+    # creates contours for every 0.25 meters of sea ice from 0 to 5.1 meters
+    #cs = m.contourf(lats,lons,speed, np.arange(0,40,5),extend='max', alpha=1,latlon=True,cmap=cmap)
+
+
+    speed = np.sqrt(v**2 + u**2)
+  
+    cs = m.contourf(lats,lons,speed, np.arange(0,50,0.5),extend='max', alpha=1,latlon=True,cmap=cmap)
+    skip = (slice(None, None, 4), slice(None, None, 4))
+
+
+    m.quiver( lats[skip], lons[skip],u[skip],
+            v[skip], latlon = True, scale = 100)
+    m.drawlsmask(land_color='k',ocean_color='k') # fill the continents and sea with black
+
+    t = plt.annotate(label,textcoords='axes fraction',
+                xy=(0,0), xytext=(-0.4,0.85),
+            fontsize=20,color='k')
+    cbar = m.colorbar(cs,drawedges=True,location='bottom',pad = 0.14,size=0.07)
+    # creates the ticks for the colourbars
+    ticks = np.arange(0,50,5)
+    cbar.set_ticks(ticks)
+   
+    labels = list(map(str,np.arange(0,50,5)))
+    cbar.set_ticklabels(labels)
+    # sets label under the colourbar
+    cbar.set_label('Ice Sheet Velocity (cm/s)',fontsize=10,color='k')
+    cbar.ax.tick_params(axis='x', size=.01)
+    cbar.ax.tick_params(labelsize=6) 
+    plt.rcParams['axes.linewidth'] = 0.1
+    return m, myfig
