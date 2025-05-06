@@ -1,0 +1,133 @@
+import struct
+import xarray as xr
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from mpl_toolkits.basemap import Basemap
+import cmocean
+
+def process_piomas_list(years, input_directory, output_directory):
+    dims = (120,360)
+    grids = define_grid()
+    for year in years:
+        process_piomas(year,  input_directory, output_directory, grids)
+    
+def define_grid():
+    dims = (120,360)
+    grids = {}
+    for i in ['lon','lat']:    
+        grid = np.array(pd.read_csv('/Users/lilymueller/Desktop/Beaufort/PIOMAS/Variables/grid.txt',
+                                header=None,
+                                delim_whitespace=True))
+
+        flat_grid = grid.ravel()
+    
+        if i == 'lat':
+            shaped_grid = flat_grid[:43200].reshape(dims)
+        else:
+            shaped_grid = flat_grid[43200:86400].reshape(dims)
+        
+#         shaped_grid = flat_grid.reshape((360,120))
+        grids[i] = shaped_grid
+    return grids
+def define_mask():
+    mask = np.load('/Users/lilymueller/Desktop/Beaufort/PIOMAS/Variables/mask.npy')
+    return mask
+    
+# Reformat into netCDF 
+def process_piomas(year, in_directory, output_dir, grids):
+# (2, months, 10, dims[0], dims[1])
+    dims = (120,360)
+    version = '_V2'
+   # binary_dir = f'/Users/lilymueller/Desktop/Beaufort/PIOMAS/Variables/uo1_10/Data/uo1_10.H{year}'
+    binary_dir = in_directory + f'icevel.H{year}'
+    ############################################################
+    ### For monthly datasets ###
+    months=12
+    
+    # Read File
+        
+    with open(binary_dir, mode='rb') as file:
+    
+        fileContent = file.read()
+        
+        
+        if len(fileContent) % 4 != 0:
+            print("Error: Invalid file size.")
+            exit()
+        
+        data = struct.unpack("f" * (len(fileContent)// 4), fileContent)
+        
+       # print(len(data)/months)
+        
+        if len(data) % months != 0:
+            print("Error: Invalid data length.")
+            exit()
+    ############################################################
+    
+    # Put it in a 3D array
+        
+        
+        ### For vector quantities ###
+        native_data = np.full((2, months, dims[0], dims[1]), np.nan)
+
+        for month in range(1, months+1):
+            start = (month - 1) * (dims[0] * dims[1])*2 #+ 518400
+            end = month * (dims[0] * dims[1])*2 #+ 518400
+            
+            # Ensure indices are within bounds
+            if end <= len(data):
+                thickness_list = np.array(data[start:end])
+               
+                # Reshape the flattened data to a 2D array
+                gridded = thickness_list.reshape(2, dims[0], dims[1]) # problem occurs
+        
+                # Store the gridded data in the 3D array
+                native_data[0, month - 1, :, :] = gridded[0]
+                native_data[ 1,month - 1,  :,:] = gridded[1]
+                
+            else:
+                print(f"Error: Data for month {month} is out of bounds.")
+                
+        
+    
+        
+    # Output to NetCDF4
+        # print(native_data)
+        # print(native_data)
+        ds = xr.Dataset( data_vars={'v':(['t','x','y'],native_data[1]), 'u':(['t', 'x','y'],native_data[0])},
+                      #   data_vars={'u':(['t', 'layer','x','y'],native_data[0])},
+                         coords =  {'longitude':(['x','y'],grids['lon']),
+                                    'latitude':(['x','y'],grids['lat']),
+                                    'month':(['t'],np.array(range(1,months+1)))})
+        
+        
+        ds.attrs['data_name'] = 'Monthly mean Piomas ocean ice velocity data'
+        
+        ds.attrs['description'] = """Ice sheet velocity in m/s on the lat/lon grid, 
+                                    data produced by University of Washington Polar Science Center"""
+        
+        ds.attrs['year'] = f"""These data are for the year {year}"""
+        
+        ds.attrs['citation'] = """When using this data please use the citation: 
+                                Zhang, Jinlun and D.A. Rothrock: Modeling global sea 
+                                ice with a thickness and enthalpy distribution model 
+                                in generalized curvilinear coordinates,
+                                Mon. Wea. Rev. 131(5), 681-697, 2003."""
+        
+        ds.attrs['code to read'] = """  # Example code to read a month of this data 
+    
+                                        def read_month_of_piomas(year,month):
+    
+                                            data_dir = 'output/' 
+
+                                            with xr.open_dataset(f'{data_dir}{year}.nc') as data: 
+
+                                                ds_month = data.where(int(month) == data.month, drop =True) 
+
+                                                return(ds_month)"""
+        
+
+        ds.to_netcdf(f'{output_dir}{year}.nc','w')
+
+    return native_data
