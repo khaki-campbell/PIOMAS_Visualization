@@ -1,4 +1,5 @@
-# This file contains tools to plot ice thickness in the Arctic given the netCDF files (under 'heff') available here: https://psc.apl.uw.edu/research/projects/arctic-sea-ice-volume-anomaly/data/model_grid
+# This file contains tools to plot ice thickness in the Arctic given the netCDF files 
+# (under 'heff') available here: https://psc.apl.uw.edu/research/projects/arctic-sea-ice-volume-anomaly/data/model_grid
 import netCDF4
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -6,9 +7,13 @@ import numpy as np
 from mpl_toolkits.basemap import Basemap
 import cmocean
 
-# create Beaufort Gyre plot given latitude, longitude and ice thickness. 
+# create ice thickness plot given latitude, longitude and ice thickness. Latitude and longitude are in the netCDF.
 
 def create_ice_thickness_plot(lat_scalar,lon_scalar,thickness,label):
+    # lat_scalar: latitude as given in the netCDF
+    # lon_scalar: longitude as packaged in the netCDF
+    # thickness: ice thickness as packaged in the netCDF
+    # label: whatever you want to call this
 
     myfig =  plt.figure() 
     myax = plt.subplot(111)
@@ -53,9 +58,9 @@ def create_ice_thickness_plot(lat_scalar,lon_scalar,thickness,label):
 # replace NaNs in heff data
 def heff_replaceNaNs(thickness):
     replaced = thickness
-    replaced[np.where(thickness ==9999.9)] = np.nan       # NaNs are given the value of 9999.9 in the BG heff data
+    replaced[np.where(thickness ==9999.9)] = np.nan       # NaNs are given the value of 9999.9 in the heff data
     return replaced 
-# remove below thresh
+# mask below a certain threshold
 def remove_below_thresh(thickness, thresh):
     replaced = thickness
     replaced[np.where(thickness <= thresh)] = np.nan       
