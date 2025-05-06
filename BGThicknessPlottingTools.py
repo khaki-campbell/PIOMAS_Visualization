@@ -1,4 +1,4 @@
-# This file include useful tools to plot the Beaufort Gyre
+# This file contains tools to plot ice thickness in the Arctic given the netCDF files (under 'heff') available here: https://psc.apl.uw.edu/research/projects/arctic-sea-ice-volume-anomaly/data/model_grid
 import netCDF4
 import pandas as pd
 import matplotlib.pyplot as plt
